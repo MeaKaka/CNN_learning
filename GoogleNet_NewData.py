@@ -1,12 +1,16 @@
 import sys
 sys.path.append('..')
-
 import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
-# from torchvision.datasets import CIFAR10
 import os
+import time
+from utils import train
+from torchvision import datasets, models, transforms
+from torch.optim import lr_scheduler
+
+
 
 # 定义一个卷积加一个 relu 激活函数和一个 batchnorm 作为一个基本的层结构
 def conv_relu(in_channel, out_channel, kernel, stride=1, padding=0):
@@ -16,7 +20,7 @@ def conv_relu(in_channel, out_channel, kernel, stride=1, padding=0):
         nn.ReLU(True)
     )
     return layer
-    
+# 设置inception模块    
 class inception(nn.Module):
     def __init__(self, in_channel, out1_1, out2_1, out2_3, out3_1, out3_5, out4_1):
         super(inception, self).__init__()
@@ -48,8 +52,8 @@ class inception(nn.Module):
         f4 = self.branch_pool(x)
         output = torch.cat((f1, f2, f3, f4), dim=1)
         return output
-        
-   class googlenet(nn.Module):
+# 定义Googlenet网络        
+class googlenet(nn.Module):
     def __init__(self, in_channel, num_classes, verbose=False):
         super(googlenet, self).__init__()
         self.verbose = verbose
@@ -108,8 +112,7 @@ class inception(nn.Module):
         x = self.classifier(x)
         return x
         
-   import time
-
+# 定义训练过程
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
@@ -173,24 +176,12 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     # load best model weights
     model.load_state_dict(best_model_wts)
     return model
-from utils import train
-from torchvision import datasets, models, transforms
-from torch.optim import lr_scheduler
 
-
-# def data_tf(x):
-#     x = x.resize((96, 96), 2) # 将图片放大到 96 x 96
-#     x = np.array(x, dtype='float32') / 255
-#     x = (x - 0.5) / 0.5 # 标准化，这个技巧之后会讲到
-#     x = x.transpose((2, 0, 1)) # 将 channel 放到第一维，只是 pytorch 要求的输入方式
-#     x = torch.from_numpy(x)
-#     return x
-   
+# 数据预处理
 data_transforms = {
     'train': transforms.Compose([
         transforms.RandomResizedCrop (96),
         transforms.RandomHorizontalFlip(),
-#         transforms.Resize(96),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
@@ -206,7 +197,7 @@ data_transforms = {
 data_dir = './CNN_img2/img'
 image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x),
                                           data_transforms[x]) for x in ['train', 'val']}
-# wrap your data and label into Tensor
+# 数据Tensor化
 dataloders = {x: torch.utils.data.DataLoader(image_datasets[x],
                                              batch_size=4,
                                              shuffle=True,
@@ -214,17 +205,19 @@ dataloders = {x: torch.utils.data.DataLoader(image_datasets[x],
 
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 
-
+# 设置网络大小
 net = googlenet(3, 3)
+# 设置优化方式
 optimizer = torch.optim.SGD(net.parameters(), lr=0.01)
-
-# Decay LR by a factor of 0.1 every 7 epochs
+# 设置学习速率的更新速度
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-
+# 设置损失函数
 criterion = nn.CrossEntropyLoss()    
-import os
-
+# 指定GPU服务器
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-use_gpu = torch.cuda.is_available()
+
+use_gpu = torch.cuda.is_available
+
 net = train_model(model=net,criterion=criterion,optimizer=optimizer,scheduler=exp_lr_scheduler,num_epochs=25)
+#保存网络
 torch.save(net,'./CNN_img2/googlenet.pt')    
