@@ -220,4 +220,54 @@ use_gpu = torch.cuda.is_available
 
 net = train_model(model=net,criterion=criterion,optimizer=optimizer,scheduler=exp_lr_scheduler,num_epochs=25)
 #保存网络
-torch.save(net,'./CNN_img2/googlenet.pt')    
+torch.save(net,'googlenet.pkl')
+
+
+
+
+#读取网络进行测试
+from PIL import Image
+import matplotlib.pyplot as plt
+import torchvision
+
+#加载保存的网络
+net = torch.load('net.pkl')
+#指定输入数据的大小
+data_transforms =transforms.Compose([
+                transforms.RandomResizedCrop (96),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+
+#设置函数可视化输入图像
+def imshow(inp, title=None):
+    """Imshow for Tensor."""
+    inp = inp.numpy().transpose((1, 2, 0))
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    inp = std * inp + mean
+    inp = np.clip(inp, 0, 1)
+    plt.imshow(inp)
+    if title is not None:
+        plt.title(title)
+    plt.pause(0.001)  # pause a bit so that plots are updated
+
+#读取测试文件
+def get_files(directory):
+    return [os.path.join(directory, f) for f in sorted(list(os.listdir(directory)))
+            if os.path.isfile(os.path.join(directory, f))]
+images = np.array([])
+file = get_files('./CNN_img2/test')
+for i, item in enumerate(file):
+    print('Processing %i of %i (%s)' % (i+1, len(file), item))
+    image = data_transforms(Image.open(item))
+    #可视化图像
+    out = torchvision.utils.make_grid(image)
+    imshow(out)
+    #对图片进行预测
+    image = image.unsqueeze_(0)
+    outputs = net(Variable(image))
+    _, predicted = torch.max(outputs.data, 1)
+    print (outputs)
+    print (predicted)
